@@ -1,38 +1,66 @@
 package main
 
 import (
-	"bufio"
-	"flag"
-	"fmt"
-	"image/png"
+	"bytes"
+	"encoding/base64"
+	"html/template"
+	"image"
+	"image/jpeg"
 	"log"
-	"os"
+	"net/http"
+	"strconv"
 )
 
-func main() {
-	flag.Parse()
+var ImageTemplate string = `<!DOCTYPE html>
+<html lang="en"><head></head>
+<body><img src="data:image/jpg;base64,{{.Image}}"></body>`
+
+func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
+	buffer := new(bytes.Buffer)
+	if err := jpeg.Encode(buffer, *img, nil); err != nil {
+		w.Write([]byte("unable to encode image"))
+	}
+
+	str := base64.StdEncoding.EncodeToString(buffer.Bytes())
+	if tmpl, err := template.New("image").Parse(ImageTemplate); err != nil {
+		w.Write([]byte("Error parsing template"))
+	} else {
+		data := map[string]interface{}{"Image": str}
+		if err = tmpl.Execute(w, data); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("unable to execute template"))
+		}
+	}
+}
+
+func memeHandler(w http.ResponseWriter, r *http.Request) {
+	size := r.URL.Query().Get("size")
+	topText := r.URL.Query().Get("top")
+	bottomText := r.URL.Query().Get("bottom")
 	meme := loadPng("images/yno.png")
 	f := loadFont("font/impact.ttf")
 
-	result, err := drawText(f, "HELLO", "WORLD", meme, 75, 48)
+	s, err := strconv.ParseFloat(size, 64)
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	result, err := drawText(f, topText, bottomText, meme, 75, s)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
 	}
 
-	// Save that RGBA image to disk.
-	outFile, err := os.Create("out.png")
+	var img image.Image = result
+	writeImageWithTemplate(w, &img)
+}
+
+func main() {
+	http.HandleFunc("/meme", memeHandler)
+	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("ListenAndServe:", err)
 	}
-	defer outFile.Close()
-	b := bufio.NewWriter(outFile)
-	err = png.Encode(b, result)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = b.Flush()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Wrote out.png OK.")
 }

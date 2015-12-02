@@ -25,7 +25,6 @@ func loadPng(filename string) image.Image {
 }
 
 func loadFont(filename string) *truetype.Font {
-	// Read the font data.
 	fontBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
