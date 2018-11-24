@@ -16,6 +16,7 @@ var ImageTemplate string = `<!DOCTYPE html>
 <body><img src="data:image/jpg;base64,{{.Image}}"></body>`
 
 func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
+	var err error
 	buffer := new(bytes.Buffer)
 	if err := jpeg.Encode(buffer, *img, nil); err != nil {
 		w.Write([]byte("unable to encode image"))
@@ -23,7 +24,8 @@ func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
 	}
 
 	str := base64.StdEncoding.EncodeToString(buffer.Bytes())
-	if tmpl, err := template.New("image").Parse(ImageTemplate); err != nil {
+	var tmpl *template.Template
+	if tmpl, err = template.New("image").Parse(ImageTemplate); err != nil {
 		w.Write([]byte("Error parsing template"))
 		return
 	}
@@ -61,8 +63,7 @@ func memeHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/meme", memeHandler)
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
+	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }
