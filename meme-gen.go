@@ -19,17 +19,19 @@ func writeImageWithTemplate(w http.ResponseWriter, img *image.Image) {
 	buffer := new(bytes.Buffer)
 	if err := jpeg.Encode(buffer, *img, nil); err != nil {
 		w.Write([]byte("unable to encode image"))
+		return
 	}
 
 	str := base64.StdEncoding.EncodeToString(buffer.Bytes())
 	if tmpl, err := template.New("image").Parse(ImageTemplate); err != nil {
 		w.Write([]byte("Error parsing template"))
-	} else {
-		data := map[string]interface{}{"Image": str}
-		if err = tmpl.Execute(w, data); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("unable to execute template"))
-		}
+		return
+	}
+
+	data := map[string]interface{}{"Image": str}
+	if err = tmpl.Execute(w, data); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("unable to execute template"))
 	}
 }
 
